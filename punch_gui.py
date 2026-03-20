@@ -25,6 +25,7 @@ import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 from gi.repository import Adw, Gtk, GLib, Gio, Gdk
+import math
 
 
 class PunchTrackerWindow(Adw.ApplicationWindow):
@@ -32,9 +33,11 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
 
     def __init__(self, **kwargs):
         super().__init__(title='Punch Tracker', **kwargs)
-        
-        # Set up the main layout
+
         self.set_default_size(400, 500)
+
+        self._punched_in = False
+        self._session_start = None
 
         provider = Gtk.CssProvider()
         provider.load_from_data(b"""
@@ -48,31 +51,28 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
                 color: white;
             }
         """)
-        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
 
-        grid = Gtk.Grid(column_spacing=6, row_spacing=6)
+        outer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 
-        # Header placeholder row (Adw-style header bar in content area)
+        # Header bar
         headerbar = Adw.HeaderBar.new()
         headerbar.set_title_widget(Gtk.Label(label='Punch Tracker'))
         headerbar.add_css_class('header-bar')
-        headerbar.set_halign(Gtk.Align.FILL)
-        headerbar.set_hexpand(True)
-        headerbar.set_valign(Gtk.Align.START)
 
-        # About button in headerbar
         about_button = Gtk.Button.new_from_icon_name('help-about-symbolic')
         about_button.connect('clicked', self.on_about_clicked)
         headerbar.pack_start(about_button)
 
-        grid.attach(headerbar, 0, 0, 2, 1)
-
-        self.set_content(grid)
+        outer_box.append(headerbar)
 
         # Punch row: button + clock label
         top_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
 
         self.punch_button = Gtk.Button(label='Punch In')
+        self.punch_button.add_css_class('suggested-action')
         self.punch_button.connect('clicked', self.on_punch_clicked)
         top_box.append(self.punch_button)
 
@@ -88,9 +88,9 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         top_box.set_margin_end(12)
         top_box.set_margin_top(6)
         top_box.set_margin_bottom(6)
-        grid.attach(top_box, 0, 1, 2, 1)
+        outer_box.append(top_box)
 
-        # Console text view with padding
+        # Console text view
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.ALWAYS)
         self.console_text_view = Gtk.TextView()
@@ -101,12 +101,41 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         scrolled_window.set_margin_start(12)
         scrolled_window.set_margin_end(12)
         scrolled_window.set_margin_top(6)
-        scrolled_window.set_margin_bottom(20)
+        scrolled_window.set_margin_bottom(6)
         scrolled_window.set_vexpand(True)
-        grid.attach(scrolled_window, 0, 2, 2, 1)
+        outer_box.append(scrolled_window)
+
+        # Action bar (GNOME HIG footer)
+        action_bar = Gtk.ActionBar()
+
+        self.status_dot = Gtk.DrawingArea()
+        self.status_dot.set_content_width(10)
+        self.status_dot.set_content_height(10)
+        self.status_dot.set_draw_func(self._draw_status_dot)
+
+        self.status_label = Gtk.Label(label='Status: Clocked out')
+        self.status_label.set_margin_start(4)
+
+        action_bar.pack_start(self.status_dot)
+        action_bar.pack_start(self.status_label)
+
+        self.session_label = Gtk.Label(label='Session: —')
+        action_bar.pack_end(self.session_label)
+
+        outer_box.append(action_bar)
+
+        self.set_content(outer_box)
 
         self.start_clock()
         self.populate_test_data()
+
+    def _draw_status_dot(self, area, cr, width, height):
+        if self._punched_in:
+            cr.set_source_rgb(0.39, 0.60, 0.13)  # green
+        else:
+            cr.set_source_rgb(0.55, 0.55, 0.55)  # gray
+        cr.arc(width / 2, height / 2, min(width, height) / 2, 0, 2 * math.pi)
+        cr.fill()
 
     def start_clock(self):
         self.update_clock()
@@ -128,10 +157,29 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         self.append_to_console('\n-- Test data loaded (1000 rows) --\n')
 
     def on_punch_clicked(self, button):
-        # Simulate punching in
-        timestamp = GLib.DateTime.new_now_local().format('%Y-%m-%d %H:%M:%S')
-        output = f"Punched in at {timestamp}\n"
-        self.append_to_console(output)
+        timestamp = GLib.DateTime.new_now_local()
+        ts_str = timestamp.format('%Y-%m-%d %H:%M:%S')
+
+        if not self._punched_in:
+            self._punched_in = True
+            self._session_start = timestamp
+            self.punch_button.set_label('Punch Out')
+            self.status_label.set_label('Status: Punched in')
+            self.session_label.set_label('Session: in progress')
+            self.append_to_console(f'Punched in at {ts_str}\n')
+        else:
+            self._punched_in = False
+            elapsed = timestamp.difference(self._session_start) // 1_000_000  # microseconds → seconds
+            hours, rem = divmod(elapsed, 3600)
+            mins, secs = divmod(rem, 60)
+            duration = f'{hours}h {mins}m {secs}s'
+            self.punch_button.set_label('Punch In')
+            self.status_label.set_label('Status: Clocked out')
+            self.session_label.set_label(f'Last session: {duration}')
+            self.append_to_console(f'Punched out at {ts_str} (duration: {duration})\n')
+            self._session_start = None
+
+        self.status_dot.queue_draw()
 
     def append_to_console(self, text):
         end_iter = self.console_buffer.get_end_iter()
@@ -161,14 +209,16 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         from about import show_about
         show_about(self)
 
+
 class PunchTrackerApplication(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(application_id='org.example.PunchTracker',
                          flags=Gio.ApplicationFlags.FLAGS_NONE, **kwargs)
-        
+
     def do_activate(self):
         win = PunchTrackerWindow(application=self)
         win.present()
+
 
 if __name__ == '__main__':
     app = PunchTrackerApplication()

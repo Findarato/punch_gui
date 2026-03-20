@@ -31,9 +31,9 @@ def show_about(parent):
     about.set_copyright("\n\n Copyright 2026 Joseph Harry")
     about.set_website("https://github.com/findarato/Punch-GUI")
     about.set_icon_name("punch-gui")
-    about.set_developers(["Joseph Harry", "GitHub Copilot"])
+    about.set_developers(["Joseph Harry", "GitHub Copilot", "Claude AI"])
     about.add_credit_section("Developers", ["Joseph Harry"])
-    about.add_credit_section("Contributors", ["GitHub Copilot"])
+    about.add_credit_section("Contributors", ["GitHub Copilot", "Claude AI"])
     about.add_credit_section("Licenses", ["GNU General Public License v3.0 (GPL-3.0)\n\n" +
                        "This program is free software: you can redistribute it and/or modify\n" +
                        "it under the terms of the GNU General Public License as published by\n" +
