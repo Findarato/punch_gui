@@ -1,0 +1,8 @@
+punch
+.venv
+.continue/*
+.continue
+.flatpak*
+build-dir
+settings.json
+credentials.json

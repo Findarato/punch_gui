@@ -1,0 +1,11 @@
+{
+    "chromedriver_path": "/usr/bin/chromedriver",
+    "antifarm_sleep": 8,
+    "deviation": 5,
+    "maximize_window": true,
+    "headless": false,
+    "incognito": true,
+    "auto_login": true,
+    "mute_audio": true,
+    "vpn_interface":"/sys/class/net/vpn0/operstate"
+}
