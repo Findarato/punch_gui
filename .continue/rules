@@ -1,0 +1,10 @@
+# Project Architecture
+
+This is a Python application with:
+
+
+## Coding Standards
+
+- Use Python for all new files
+<!-- - Follow the existing naming conventions -->
+- Write tests for all new features

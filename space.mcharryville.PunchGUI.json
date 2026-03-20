@@ -1,0 +1,42 @@
+{
+    "app-id": "space.mcharryville.punch_gui",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "41",
+    "sdk": "org.gnome.Sdk",
+    "command": "punch-gui",
+    "finish-args": [
+        "--share=network",
+        "--socket=x11",
+        "--socket=xwayland"
+    ],
+    "modules": [
+        {
+            "name": "punch-gui",
+            "buildsystem": "simple",
+            "sources": [
+                {
+                    "type": "git",
+                    "url": "https://github.com/yourusername/punch_gui.git",
+                    "branch": "main"
+                }
+            ],
+            "build-commands": [
+                "python3 setup.py install --prefix=/app"
+            ]
+        },
+        {
+            "name": "python-runtime",
+            "buildsystem": "simple",
+            "sources": [
+                {
+                    "type": "remote",
+                    "remote-name": "gnome-python-runtime",
+                    "url": "https://flathub.org/repo/flathub.flatpakrepo"
+                }
+            ],
+            "build-commands": [
+                "flatpak build-package-file /etc/os-release flatpak-deps.pip"
+            ]
+        }
+    ]
+}

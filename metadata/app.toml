@@ -1,0 +1,14 @@
+# metadata/app.toml
+
+[Application]
+name = "Punch GUI"
+description = "A graphical user interface for Punch."
+icon = "/path/to/icon.svg"  # Path to your application icon (optional)
+
+[Desktop Entry]
+Type=Application
+Name=Punch GUI
+Comment=A graphical user interface for Punch.
+Exec=punch-gui
+Icon=/path/to/icon.svg  # Path to your application icon (optional)
+Categories=Utility;Application;
