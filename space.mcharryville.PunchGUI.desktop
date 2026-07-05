@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Punch GUI
+Comment=Punch in and out at work
+Exec=punch_gui.py
+Icon=space.mcharryville.PunchGUI
+Categories=Utility;
+Terminal=false
+StartupNotify=true

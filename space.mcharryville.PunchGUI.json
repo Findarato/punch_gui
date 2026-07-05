@@ -1,12 +1,15 @@
 {
-    "app-id": "space.mcharryville.punch_gui",
+    "app-id": "space.mcharryville.PunchGUI",
     "runtime": "org.gnome.Platform",
-    "runtime-version": "41",
+    "runtime-version": "47",
     "sdk": "org.gnome.Sdk",
-    "command": "punch-gui",
+    "command": "punch_gui.py",
     "finish-args": [
-        "--share=network",
-        "--socket=xwayland"
+        "--share=ipc",
+        "--socket=x11",
+        "--socket=wayland",
+        "--device=dri",
+        "--share=network"
     ],
     "modules": [
         {
@@ -14,27 +17,15 @@
             "buildsystem": "simple",
             "sources": [
                 {
-                    "type": "git",
-                    "url": "https://github.com/yourusername/punch_gui.git",
-                    "branch": "main"
+                    "type": "dir",
+                    "path": "."
                 }
             ],
             "build-commands": [
-                "python3 setup.py install --prefix=/app"
-            ]
-        },
-        {
-            "name": "python-runtime",
-            "buildsystem": "simple",
-            "sources": [
-                {
-                    "type": "remote",
-                    "remote-name": "gnome-python-runtime",
-                    "url": "https://flathub.org/repo/flathub.flatpakrepo"
-                }
-            ],
-            "build-commands": [
-                "flatpak build-package-file /etc/os-release flatpak-deps.pip"
+                "install -D punch_gui.py /app/bin/punch_gui.py",
+                "install -D about.py /app/bin/about.py",
+                "install -Dm644 space.mcharryville.PunchGUI.desktop /app/share/applications/space.mcharryville.PunchGUI.desktop",
+                "install -Dm644 space.mcharryville.PunchGUI.svg /app/share/icons/hicolor/scalable/apps/space.mcharryville.PunchGUI.svg"
             ]
         }
     ]

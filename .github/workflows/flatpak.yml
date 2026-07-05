@@ -1,0 +1,24 @@
+name: Build Flatpak
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: punch-gui.flatpak
+          manifest-path: space.mcharryville.PunchGUI.json
+          run-tests: false
+          repository-name: flathub
+          repository-url: https://flathub.org/repo/flathub.flatpakrepo
