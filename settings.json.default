@@ -9,5 +9,7 @@
     "mute_audio": true,
     "vpn_interface": "/sys/class/net/vpn0/operstate",
     "work_sso_location":"https://work.mykronos.com/wfd/home",
+    "encrypt_credentials": true,
+    "gpg_key": "XXXXXXXX",
     "VPN Update Path":"http://work.domain.site"
 }
