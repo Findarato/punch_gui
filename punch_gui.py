@@ -143,7 +143,7 @@ def run_punch_in(log_cb, done_cb, error_cb):
 
     try:
         log('🌐  Navigating to timekeeping portal…')
-        driver.get('https://methodisthospitals-sso.prd.mykronos.com/wfd/home')
+        driver.get(settings.get('work_sso_location', ''))
 
         # --- Login page detection ---
         try:
@@ -362,6 +362,180 @@ class SuperCoolDialog(Adw.Dialog):
 
 
 # ------------------------------------------------------------------ #
+#  Settings Dialog                                                     #
+# ------------------------------------------------------------------ #
+
+class SettingsDialog(Adw.Dialog):
+    """
+    Settings editor for settings.json.
+    Compatible with libadwaita 1.2+ (no SpinRow / SwitchRow needed).
+      - Adw.EntryRow   for string / path values   (libadwaita 1.2)
+      - Adw.ActionRow  + Gtk.SpinButton for integers
+      - Adw.ActionRow  + Gtk.Switch     for booleans
+    Save writes settings.json; Cancel discards all changes.
+    """
+
+    _DEFAULTS = {
+        'chromedriver_path': '/usr/bin/chromedriver',
+        'antifarm_sleep':    8,
+        'deviation':         5,
+        'maximize_window':   True,
+        'headless':          False,
+        'incognito':         True,
+        'auto_login':        True,
+        'mute_audio':        True,
+        'vpn_interface':     '/sys/class/net/vpn0/operstate',
+        'work_sso_location': 'https://work.mykronos.com/wfd/home'
+    }
+
+    def __init__(self, parent):
+        super().__init__()
+        self.set_title('Settings')
+        self.set_content_width(520)
+
+        self._settings_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'settings.json'
+        )
+        self._current = self._load()
+
+        # ---- header bar ----
+        headerbar = Adw.HeaderBar()
+
+        cancel_btn = Gtk.Button(label='Cancel')
+        cancel_btn.connect('clicked', lambda _: self.close())
+        headerbar.pack_start(cancel_btn)
+
+        save_btn = Gtk.Button(label='Save')
+        save_btn.add_css_class('suggested-action')
+        save_btn.connect('clicked', self._on_save)
+        headerbar.pack_end(save_btn)
+
+        # ---- preferences page ----
+        page = Adw.PreferencesPage()
+
+        # --- group: Paths ---
+        paths_group = Adw.PreferencesGroup(title='Paths')
+        page.add(paths_group)
+
+        self._chromedriver_row = Adw.EntryRow(title='ChromeDriver path')
+        self._chromedriver_row.set_text(self._current.get('chromedriver_path', ''))
+        paths_group.add(self._chromedriver_row)
+
+        self._vpn_row = Adw.EntryRow(title='VPN interface state file')
+        self._vpn_row.set_text(self._current.get('vpn_interface', ''))
+        paths_group.add(self._vpn_row)
+
+        # --- group: Timing ---
+        timing_group = Adw.PreferencesGroup(title='Timing')
+        page.add(timing_group)
+
+        self._sleep_spin, _ = self._make_spin_row(
+            timing_group, 'Antifarm sleep', 'seconds', 0, 120,
+            self._current.get('antifarm_sleep', 8)
+        )
+        self._deviation_spin, _ = self._make_spin_row(
+            timing_group, 'Deviation', 'seconds', 0, 60,
+            self._current.get('deviation', 5)
+        )
+
+        # --- group: Browser ---
+        browser_group = Adw.PreferencesGroup(title='Browser')
+        page.add(browser_group)
+
+        self._headless_switch = self._make_switch_row(
+            browser_group, 'Headless mode', 'Run Chrome without a visible window',
+            self._current.get('headless', False)
+        )
+        self._maximize_switch = self._make_switch_row(
+            browser_group, 'Maximize window', 'Start Chrome maximized',
+            self._current.get('maximize_window', True)
+        )
+        self._incognito_switch = self._make_switch_row(
+            browser_group, 'Incognito mode', 'Open Chrome in a private window',
+            self._current.get('incognito', True)
+        )
+        self._mute_switch = self._make_switch_row(
+            browser_group, 'Mute audio', 'Silence Chrome during automation',
+            self._current.get('mute_audio', True)
+        )
+        self._work_sso_row = Adw.EntryRow(title='SSO URL')
+        self._work_sso_row.set_text(self._current.get('work_sso_location', ''))
+        paths_group.add(self._work_sso_row)
+
+        # --- group: Login ---
+        login_group = Adw.PreferencesGroup(title='Login')
+        page.add(login_group)
+
+        self._auto_login_switch = self._make_switch_row(
+            login_group, 'Auto login', 'Fill credentials automatically',
+            self._current.get('auto_login', True)
+        )
+
+        # ---- layout ----
+        toolbar_view = Adw.ToolbarView()
+        toolbar_view.add_top_bar(headerbar)
+        toolbar_view.set_content(page)
+        self.set_child(toolbar_view)
+
+        self.present(parent)
+
+    # ---- row factory helpers --------------------------------------- #
+
+    @staticmethod
+    def _make_spin_row(group, title, subtitle, min_val, max_val, value):
+        """Add an ActionRow with a SpinButton suffix. Returns (spin, row)."""
+        row = Adw.ActionRow(title=title, subtitle=subtitle)
+        adj = Gtk.Adjustment(value=value, lower=min_val, upper=max_val,
+                             step_increment=1, page_increment=10)
+        spin = Gtk.SpinButton(adjustment=adj, numeric=True)
+        spin.set_valign(Gtk.Align.CENTER)
+        row.add_suffix(spin)
+        row.set_activatable_widget(spin)
+        group.add(row)
+        return spin, row
+
+    @staticmethod
+    def _make_switch_row(group, title, subtitle, active):
+        """Add an ActionRow with a Switch suffix. Returns the Switch."""
+        row = Adw.ActionRow(title=title, subtitle=subtitle)
+        switch = Gtk.Switch(active=active)
+        switch.set_valign(Gtk.Align.CENTER)
+        row.add_suffix(switch)
+        row.set_activatable_widget(switch)
+        group.add(row)
+        return switch
+
+    # ---- load / save ----------------------------------------------- #
+
+    def _load(self):
+        try:
+            with open(self._settings_path) as f:
+                return json.load(f)
+        except Exception:
+            return dict(self._DEFAULTS)
+
+    def _on_save(self, _button):
+        data = {
+            'chromedriver_path': self._chromedriver_row.get_text(),
+            'antifarm_sleep':    int(self._sleep_spin.get_value()),
+            'deviation':         int(self._deviation_spin.get_value()),
+            'maximize_window':   self._maximize_switch.get_active(),
+            'headless':          self._headless_switch.get_active(),
+            'incognito':         self._incognito_switch.get_active(),
+            'auto_login':        self._auto_login_switch.get_active(),
+            'mute_audio':        self._mute_switch.get_active(),
+            'vpn_interface':     self._vpn_row.get_text(),
+        }
+        try:
+            with open(self._settings_path, 'w') as f:
+                json.dump(data, f, indent=4)
+            self.close()
+        except Exception as e:
+            # Fall back to printing — no toast overlay available in bare Adw.Dialog
+            print(f'Could not save settings: {e}', file=sys.stderr)
+
+
+# ------------------------------------------------------------------ #
 #  Main window                                                         #
 # ------------------------------------------------------------------ #
 
@@ -397,14 +571,16 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         headerbar.pack_end(self.punch_button)
 
         menu = Gio.Menu()
-        menu.append('Super Cool…', 'win.super-cool')
-        menu.append('About Punch Tracker', 'win.about')
+        menu.append('Super Cool…',        'win.super-cool')
+        menu.append('Settings',           'win.settings')
+        menu.append('About Punch Tracker','win.about')
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name('open-menu-symbolic')
         menu_button.set_menu_model(menu)
         headerbar.pack_start(menu_button)
 
         for name, cb in [('super-cool', self.on_super_cool_activated),
+                         ('settings',   self.on_settings_activated),
                          ('about',      self.on_about_activated)]:
             action = Gio.SimpleAction.new(name, None)
             action.connect('activate', cb)
@@ -469,6 +645,7 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
         self.set_content(toolbar_view)
 
         self.start_clock()
+        self.populate_test_data()
 
     # ---- drawing --------------------------------------------------- #
 
@@ -580,6 +757,9 @@ class PunchTrackerWindow(Adw.ApplicationWindow):
             self.append_to_console(f'■  Punched out {ts_str}  ({duration})\n\n')
             self._session_start = None
             self.status_dot.queue_draw()
+
+    def on_settings_activated(self, action, param):
+        SettingsDialog(self)
 
     def on_super_cool_activated(self, action, param):
         SuperCoolDialog(self)

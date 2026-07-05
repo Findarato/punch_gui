@@ -6,7 +6,6 @@
     "command": "punch-gui",
     "finish-args": [
         "--share=network",
-        "--socket=x11",
         "--socket=xwayland"
     ],
     "modules": [

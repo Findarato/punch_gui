@@ -7,5 +7,7 @@
     "incognito": true,
     "auto_login": true,
     "mute_audio": true,
-    "vpn_interface":"/sys/class/net/vpn0/operstate"
+    "vpn_interface": "/sys/class/net/vpn0/operstate",
+    "work_sso_location":"https://work.mykronos.com/wfd/home",
+    "VPN Update Path":"http://work.domain.site"
 }
